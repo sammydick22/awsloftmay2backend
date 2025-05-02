@@ -10,6 +10,9 @@ temporalio
 apify-client
 httpx
 python-dotenv
+agents-arcade
+arcadepy
+openai
 
 # Utilities
 python-json-logger

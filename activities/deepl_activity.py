@@ -67,32 +67,49 @@ async def polish_email_activity(draft_id: str, email_content: str) -> str:
         # The standard translation API can also be used for polishing by translating to the same language
         url = "https://api-free.deepl.com/v2/translate" # Using translate for simplicity in demo
         
-        # Prepare the request payload for translation to the same language (English) for polishing effect
+        # Prepare the request payload for translation
+        # DeepL API expects 'text' as a list for the /v2/translate endpoint
         payload = {
-            "text": email_content,
-            "target_lang": "EN", # Translate to English to polish English text
-            "source_lang": "EN"
+            "text": [email_content],  # Important: text should be in a list
+            "target_lang": "EN-US",  # Using more specific language code
+            "source_lang": "EN"  # Source language
         }
         
         headers = {
             "Authorization": f"DeepL-Auth-Key {api_key}",
-            "Content-Type": "application/json"
+            # For DeepL API v2, content type should be application/x-www-form-urlencoded
+            "Content-Type": "application/x-www-form-urlencoded"  
         }
         
-        # Simulate API call for the hackathon demo
-        # In real implementation, this would be:
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.post(url, json=payload, headers=headers)
-        #     response.raise_for_status()
-        #     result = response.json()
-        #     polished_text = result['translations'][0]['text']
-
-        # Simulate API delay
-        await asyncio.sleep(1)
+        print(f"DeepL payload: {payload}")
         
-        # Simple mock polishing: add a note or slightly rephrase
-        polished_text = email_content.replace("Best regards,", "Sincerely,") # Example simple replacement
-        polished_text += "\n\n-- Polished by DeepL (Simulated)" # Add a simulated marker
+        # Make the actual API call to DeepL
+        print(f"Calling DeepL API to polish email for {draft_id}...")
+        
+        try:
+            # Use httpx for the API call (async HTTP client)
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, data=payload, headers=headers)
+                response.raise_for_status()
+                result = response.json()
+                
+                # Extract the polished text from DeepL response
+                polished_text = result['translations'][0]['text']
+                print(f"DeepL polish successful, received: {len(polished_text)} characters")
+                polished_text += "\n\n-- Polished by DeepL" # Add attribution
+        except Exception as api_error:
+            print(f"Error calling DeepL API: {str(api_error)}. Using fallback polish.")
+            
+            # Fallback polishing if the API call fails
+            polished_text = email_content
+            
+            # Apply some basic polishing rules
+            polished_text = polished_text.replace("Best regards,", "Sincerely,")
+            polished_text = polished_text.replace("I noticed that", "I was intrigued to learn that")
+            polished_text = polished_text.replace("I'd love to learn more", "I would be very interested in learning more")
+            polished_text = polished_text.replace("I was impressed by this", "I was particularly impressed by this achievement")
+            
+            polished_text += "\n\n-- Polished by DeepL (Simulated)" # Add simulated marker
         
         # Update the global email drafts storage
         _global_email_drafts[draft_id] = {"content": polished_text, "status": "drafted"}

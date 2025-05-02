@@ -42,61 +42,111 @@ async def fetch_leads_activity() -> Dict:
         # Update progress
         stage_progress["fetching_leads"] = 30
         
-        # For this demo, let's use a simple actor that returns mock company data
-        # In a real implementation, you'd use a specific actor or dataset for lead generation
+        # For this demo, we'll use Apify's built-in LinkedIn company scraper
+        # This will fetch real company data from LinkedIn
+        print("Starting Apify actor for LinkedIn company scraping...")
         
-        # For the hackathon demo, we'll use simulated data to avoid potential issues with actor availability
-        mock_leads = {
-            "lead1": {
-                "id": "lead1",
-                "name": "Acme Corporation",
-                "website": "https://acme.example.com",
-                "industry": "Technology",
-                "location": "San Francisco, CA"
-            },
-            "lead2": {
-                "id": "lead2",
-                "name": "Globex Industries",
-                "website": "https://globex.example.com",
-                "industry": "Manufacturing",
-                "location": "Chicago, IL"
-            },
-            "lead3": {
-                "id": "lead3",
-                "name": "Stark Enterprises",
-                "website": "https://stark.example.com",
-                "industry": "Energy",
-                "location": "New York, NY"
-            },
-            "lead4": {
-                "id": "lead4",
-                "name": "Wayne Innovations",
-                "website": "https://wayne.example.com",
-                "industry": "Research & Development",
-                "location": "Gotham City"
-            },
-            "lead5": {
-                "id": "lead5",
-                "name": "Umbrella Corporation",
-                "website": "https://umbrella.example.com",
-                "industry": "Pharmaceuticals",
-                "location": "Raccoon City"
-            }
+        # Define the input for the LinkedIn Companies Scraper
+        run_input = {
+            "search": "AI Companies",  # Search for AI companies
+            "maxItems": 5,             # Limit to 5 companies for the demo
+            "linkedInCompanyUrls": [
+                "https://www.linkedin.com/company/microsoft/",
+                "https://www.linkedin.com/company/google/",
+                "https://www.linkedin.com/company/openai/",
+                "https://www.linkedin.com/company/apple/",
+                "https://www.linkedin.com/company/amazon/"
+            ],
+            "resultsType": "company",
         }
+        
+        # Run the actor and get the results
+        # Note: For a demo where LinkedIn might be rate-limited, fallback to mock data if it fails
+        try:
+            print("Calling Apify actor...")
+            # Use a pre-built actor for LinkedIn company scraping
+            # You could also use "apify/web-scraper" for generic web scraping
+            run = client.actor("apify/linkedin-companies-scraper").call(run_input=run_input)
+            
+            # Get dataset items from the run
+            print(f"Getting results from dataset: {run.get('defaultDatasetId')}")
+            if run.get("defaultDatasetId"):
+                dataset_items = client.dataset(run["defaultDatasetId"]).list_items().items
+                
+                # Process results into leads
+                leads_dict = {}
+                for i, item in enumerate(dataset_items, 1):
+                    lead_id = f"lead{i}"
+                    leads_dict[lead_id] = {
+                        "id": lead_id,
+                        "name": item.get("name", f"Company {i}"),
+                        "website": item.get("websiteUrl", item.get("linkedInUrl", "")),
+                        "industry": item.get("industry", "Technology"),
+                        "location": item.get("headquarters", "Unknown Location"),
+                        "description": item.get("description", ""),
+                        "linkedInUrl": item.get("linkedInUrl", "")
+                    }
+                
+                # If we got real results, use them
+                if leads_dict:
+                    print(f"Successfully fetched {len(leads_dict)} leads from Apify")
+                    # Update progress
+                    stage_progress["fetching_leads"] = 60
+                    
+                    # Return the real data
+                    return leads_dict
+        except Exception as api_error:
+            print(f"Error calling Apify API: {str(api_error)}. Falling back to mock data.")
+        
+            # Fall back to mock data if API call fails or returns no data
+            print("Using mock lead data")
+            mock_leads = {
+                "lead1": {
+                    "id": "lead1",
+                    "name": "Microsoft Corporation",
+                    "website": "https://microsoft.com",
+                    "industry": "Technology",
+                    "location": "Redmond, WA",
+                    "description": "Microsoft Corporation is an American multinational technology company that develops, manufactures, licenses, supports, and sells computer software, consumer electronics, personal computers, and related services."
+                },
+                "lead2": {
+                    "id": "lead2",
+                    "name": "Google LLC",
+                    "website": "https://google.com",
+                    "industry": "Technology",
+                    "location": "Mountain View, CA",
+                    "description": "Google LLC is an American multinational technology company that specializes in Internet-related services and products, including online advertising technologies, a search engine, cloud computing, software, and hardware."
+                },
+                "lead3": {
+                    "id": "lead3",
+                    "name": "OpenAI",
+                    "website": "https://openai.com",
+                    "industry": "Artificial Intelligence",
+                    "location": "San Francisco, CA",
+                    "description": "OpenAI is an artificial intelligence research laboratory consisting of the for-profit corporation OpenAI LP and its parent company, the non-profit OpenAI Inc."
+                },
+                "lead4": {
+                    "id": "lead4",
+                    "name": "Apple Inc.",
+                    "website": "https://apple.com",
+                    "industry": "Technology",
+                    "location": "Cupertino, CA",
+                    "description": "Apple Inc. is an American multinational technology company that designs, develops, and sells consumer electronics, computer software, and online services."
+                },
+                "lead5": {
+                    "id": "lead5",
+                    "name": "Amazon.com, Inc.",
+                    "website": "https://amazon.com",
+                    "industry": "E-commerce, Technology",
+                    "location": "Seattle, WA",
+                    "description": "Amazon.com, Inc. is an American multinational technology company which focuses on e-commerce, cloud computing, digital streaming, and artificial intelligence."
+                }
+            }
         
         # Update progress
         stage_progress["fetching_leads"] = 60
         
-        # In a real implementation, you would do something like:
-        # run_input = {
-        #     "startUrls": [{"url": "https://example.com/companies"}],
-        #     "maxItems": 5  # Limit to 5 leads for the demo
-        # }
-        # run = client.actor("apify/web-scraper").call(run_input=run_input)
-        # dataset_items = client.dataset(run["defaultDatasetId"]).list_items().items
-        # leads = {f"lead{i}": item for i, item in enumerate(dataset_items, 1)}
-        
-        # Simulate API call delay
+        # Simulate API delay - wait a bit for UI effect
         await asyncio.sleep(2)
         
         # Update progress

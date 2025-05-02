@@ -122,47 +122,45 @@ def start_workflow():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 def simulate_workflow_progress():
-    """Simulate workflow progress by updating state over time."""
+    """Run the real activity implementations directly instead of simulating."""
     global workflow_status, leads, current_stage, stage_progress
     
-    print("Starting workflow simulation thread")
+    # Import the real activity implementations
+    from activities.perplexity_activity import generate_insight_activity
+    from activities.deepl_activity import polish_email_activity
+    from activities.arcade_activity import send_email_activity
+    
+    print("Starting workflow with real API integrations")
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     try:
         # Wait a moment for the frontend to start polling
         time.sleep(2)
         
-        # Step 1: Generate insights
-        print("Simulating insight generation...")
+        # Step 1: Generate insights using the real Perplexity API
+        print("Generating insights using Perplexity API...")
         current_stage = "generating_insights"
         
         # Process each lead
-        for i, (lead_id, lead) in enumerate(leads.items()):
-            # Generate mock insight
-            mock_insights = {
-                "lead1": "Acme Corporation recently secured a $50M Series C funding round and is expanding its AI capabilities.",
-                "lead2": "Globex Industries has developed a revolutionary sustainable manufacturing process that reduces carbon emissions by 35%.",
-                "lead3": "Stark Enterprises recently announced a major green energy initiative, planning to convert all operations to renewable sources by 2027."
-            }
-            
-            # Update lead with insight
-            lead["insight"] = mock_insights.get(lead_id, f"{lead['name']} is showing impressive growth in their industry.")
-            leads[lead_id] = lead
-            _global_leads[lead_id] = lead
-            
-            # Update progress
-            progress = int(((i + 1) / len(leads)) * 100)
-            stage_progress["generating_insights"] = progress
-            print(f"Generated insight for {lead['name']} - Progress: {progress}%")
-            
-            # Small delay to simulate time passing
-            time.sleep(1)
+        for lead_id, lead in leads.items():
+            try:
+                # Call the real insight activity
+                insight = loop.run_until_complete(
+                    generate_insight_activity(lead_id, lead["name"])
+                )
+                print(f"Generated real insight for {lead['name']}: {insight[:50]}...")
+            except Exception as e:
+                print(f"Error generating insight for {lead['name']}: {str(e)}")
+                # Continue with next lead even if one fails
         
         # Step 2: Draft emails
-        print("Simulating email drafting...")
+        print("Drafting emails...")
         current_stage = "drafting_emails"
         stage_progress["generating_insights"] = 100
         
-        for i, (lead_id, lead) in enumerate(leads.items()):
-            # Create email draft
+        for lead_id, lead in leads.items():
+            # Create email draft - this step is done locally
             email_template = f"""Subject: Quick question about {lead['name']}
 
 Hi {lead['name']},
@@ -180,67 +178,58 @@ Best regards,
             # Store the draft
             draft_id = f"email_{lead_id}"
             email_drafts[draft_id] = {"content": email_template, "status": "drafted"}
-            
-            # Update progress
-            progress = int(((i + 1) / len(leads)) * 100)
-            stage_progress["drafting_emails"] = progress
-            print(f"Drafted email for {lead['name']} - Progress: {progress}%")
-            
-            # Small delay
-            time.sleep(1)
+            print(f"Drafted email for {lead['name']}")
         
-        # Step 3: Polish emails
-        print("Simulating email polishing...")
-        current_stage = "polishing_emails"
+        # Update progress for drafting phase
         stage_progress["drafting_emails"] = 100
         
-        for i, (draft_id, draft) in enumerate(email_drafts.items()):
-            # Polish the email (simple simulation)
-            polished_text = draft["content"].replace("Best regards,", "Sincerely,")
-            polished_text += "\n\n-- Polished by DeepL"
-            
-            # Update the draft
-            email_drafts[draft_id]["content"] = polished_text
-            
-            # Update progress
-            progress = int(((i + 1) / len(email_drafts)) * 100)
-            stage_progress["polishing_emails"] = progress
-            print(f"Polished email {draft_id} - Progress: {progress}%")
-            
-            # Small delay
-            time.sleep(1)
+        # Step 3: Polish emails using the real DeepL API
+        print("Polishing emails using DeepL API...")
+        current_stage = "polishing_emails"
         
-        # Step 4: Send emails
-        print("Simulating email sending...")
+        for draft_id, draft in email_drafts.items():
+            try:
+                # Call the real polish activity
+                polished_text = loop.run_until_complete(
+                    polish_email_activity(draft_id, draft["content"])
+                )
+                print(f"Polished email {draft_id} using DeepL API")
+            except Exception as e:
+                print(f"Error polishing email {draft_id}: {str(e)}")
+                # Continue with next draft even if one fails
+        
+        # Step 4: Send emails using the real Arcade.dev API
+        print("Sending emails using Arcade.dev API...")
         current_stage = "sending_emails"
         stage_progress["polishing_emails"] = 100
         
-        for i, (lead_id, lead) in enumerate(leads.items()):
-            # Mark as sent
+        for lead_id, lead in leads.items():
             draft_id = f"email_{lead_id}"
             if draft_id in email_drafts:
-                email_drafts[draft_id]["status"] = "sent"
-            
-            # Add email content directly to lead for easier frontend access
-            lead["status"] = "sent"
-            lead["email_content"] = email_drafts[draft_id]["content"]
-            
-            # Update progress
-            progress = int(((i + 1) / len(leads)) * 100)
-            stage_progress["sending_emails"] = progress
-            print(f"Sent email to {lead['name']} - Progress: {progress}%")
-            
-            # Small delay
-            time.sleep(1)
+                try:
+                    # Generate a simulated email address from the company name
+                    email_address = f"contact@{lead['name'].lower().replace(' ', '')}.com"
+                    
+                    # Call the real send activity
+                    result = loop.run_until_complete(
+                        send_email_activity(lead_id, email_address, email_drafts[draft_id]["content"])
+                    )
+                    print(f"Sent email to {lead['name']} via Arcade.dev API")
+                except Exception as e:
+                    print(f"Error sending email to {lead['name']}: {str(e)}")
+                    # Continue with next lead even if one fails
         
         # Workflow complete
         stage_progress["sending_emails"] = 100
         current_stage = "completed"
         workflow_status = "completed"
-        print("Workflow simulation completed")
+        print("Workflow completed with real API integrations")
         
     except Exception as e:
-        print(f"Error in workflow simulation: {str(e)}")
+        print(f"Error in workflow: {str(e)}")
+    finally:
+        # Close the event loop
+        loop.close()
 
 # This is the real async implementation that would be used in production
 # But we'll keep it commented out for now to make testing easier

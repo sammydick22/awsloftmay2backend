@@ -65,9 +65,9 @@ async def generate_insight_activity(lead_id: str, company_name: str) -> str:
         # Create a prompt for the API
         prompt = f"What is something interesting or notable about {company_name} that would be valuable for a sales outreach email? Focus on recent achievements, growth, or innovations. Keep it brief (1-2 sentences) and professional."
         
-        # Prepare the request payload
+        # Prepare the request payload - updated based on the official Perplexity API docs
         payload = {
-            "model": "sonar-medium-online",  # Use Sonar model for web access
+            "model": "sonar",  # Correct model name per Perplexity API documentation
             "messages": [
                 {
                     "role": "system",
@@ -87,28 +87,31 @@ async def generate_insight_activity(lead_id: str, company_name: str) -> str:
             "Content-Type": "application/json"
         }
         
-        # In a real implementation, this would make an actual API call
-        # Simulate API call for the hackathon demo
-        # In real implementation, this would be:
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.post(url, json=payload, headers=headers)
-        #     response.raise_for_status()
-        #     result = response.json()
-        #     insight = result['choices'][0]['message']['content']
+        print(f"Using payload: {json.dumps(payload, indent=2)}")
         
-        # Simulate API delay
-        await asyncio.sleep(1.5)
+        # Make the actual API call to Perplexity Sonar
+        print(f"Calling Perplexity API for insight on {company_name}...")
         
-        # Generate mock insights for each company
-        mock_insights = {
-            "Acme Corporation": "Acme Corporation recently secured a $50M Series C funding round and is expanding its AI capabilities with a new research division.",
-            "Globex Industries": "Globex Industries has developed a revolutionary sustainable manufacturing process that reduces carbon emissions by 35%, garnering industry recognition.",
-            "Stark Enterprises": "Stark Enterprises recently announced a major green energy initiative, planning to convert all operations to renewable sources by 2027.",
-            "Wayne Innovations": "Wayne Innovations just patented a breakthrough security technology and is looking to expand partnerships in the enterprise sector.",
-            "Umbrella Corporation": "Umbrella Corporation has been recognized in Forbes' Top 10 Biotech Innovators list and is actively expanding their research team."
-        }
-        
-        insight = mock_insights.get(company_name, f"{company_name} is showing impressive growth and innovation in their industry.")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                result = response.json()
+                insight = result['choices'][0]['message']['content']
+                print(f"Got insight from Perplexity: {insight[:100]}...")
+        except Exception as api_error:
+            print(f"Error calling Perplexity API: {str(api_error)}. Using fallback insight.")
+            
+            # Fallback insights if the API call fails
+            mock_insights = {
+                "Microsoft Corporation": "Microsoft recently expanded its AI capabilities with significant investments in OpenAI and launched Copilot AI assistants across its product suite, positioning itself at the forefront of the generative AI revolution.",
+                "Google LLC": "Google has been enhancing its AI research with the recent launch of Gemini, its most capable multimodal AI model, while also focusing on sustainability with a commitment to run all its data centers on carbon-free energy by 2030.",
+                "OpenAI": "OpenAI recently released GPT-4o, their most advanced multimodal model that processes text, vision, and audio with remarkable human-like performance, while expanding enterprise adoption through partnerships with major corporations.",
+                "Apple Inc.": "Apple recently introduced Apple Intelligence, its new AI system integrated across iOS, iPadOS, and macOS, designed with privacy-preserving on-device processing and selective cloud computing for complex tasks.",
+                "Amazon.com, Inc.": "Amazon has been expanding its AWS AI services with new generative AI capabilities and recently announced significant investments in Anthropic, positioning itself as a key infrastructure provider in the AI ecosystem."
+            }
+            
+            insight = mock_insights.get(company_name, f"{company_name} has been making notable strides in innovation and market expansion recently.")
         
         # Update the lead with the insight
         if lead_id in _global_leads:
