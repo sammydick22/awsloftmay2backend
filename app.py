@@ -18,13 +18,14 @@ workflow_status = "idle"  # Options: idle, in_progress, completed
 
 # Workflow stages tracking
 current_stage = "idle"  # Current active stage of the workflow
-# Possible values: idle, fetching_leads, generating_insights, drafting_emails, polishing_emails, sending_emails, completed
+# Possible values: idle, discovering_companies, fetching_leads, generating_insights, drafting_emails, polishing_emails, sending_emails, completed
 stage_progress = {
-    "fetching_leads": 0,         # 0-100 percentage
-    "generating_insights": 0,     # 0-100 percentage
-    "drafting_emails": 0,         # 0-100 percentage
-    "polishing_emails": 0,        # 0-100 percentage
-    "sending_emails": 0           # 0-100 percentage
+    "discovering_companies": 0,  # 0-100 percentage - Find recently funded companies using Perplexity
+    "fetching_leads": 0,         # 0-100 percentage - Enrich with Crunchbase data and contact info
+    "generating_insights": 0,     # 0-100 percentage - Generate personalized insights for outreach
+    "drafting_emails": 0,         # 0-100 percentage - Draft initial email content
+    "polishing_emails": 0,        # 0-100 percentage - Polish with DeepL
+    "sending_emails": 0           # 0-100 percentage - Send via Arcade.dev
 }
 
 # Import workflow after defining the global variables to avoid circular imports
@@ -72,45 +73,45 @@ def start_workflow():
         # In a real setup, we would start the temporal workflow here
         # But for the mock/test implementation, we'll just set the status
         workflow_status = "in_progress"
-        current_stage = "fetching_leads"
+        current_stage = "discovering_companies"
         
-        # Add mock leads directly for demo purposes
-        mock_leads = {
-            "lead1": {
-                "id": "lead1",
-                "name": "Acme Corporation",
-                "website": "https://acme.example.com",
-                "industry": "Technology",
-                "location": "San Francisco, CA"
-            },
-            "lead2": {
-                "id": "lead2",
-                "name": "Globex Industries",
-                "website": "https://globex.example.com",
-                "industry": "Manufacturing",
-                "location": "Chicago, IL"
-            },
-            "lead3": {
-                "id": "lead3",
-                "name": "Stark Enterprises",
-                "website": "https://stark.example.com",
-                "industry": "Energy",
-                "location": "New York, NY"
-            }
-        }
+        # STEP 1: Use Perplexity to discover recently funded companies
+        from activities.perplexity_discovery_activity import discover_funded_companies_activity
         
-        # Update the global leads storage with mock data
-        leads.update(mock_leads)
+        # Run the Perplexity discovery activity to find recently funded companies
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            discovered_companies = loop.run_until_complete(discover_funded_companies_activity())
+            leads.update(discovered_companies)
+            print(f"Discovered {len(discovered_companies)} recently funded companies")
+        except Exception as e:
+            print(f"Error discovering companies: {str(e)}")
+        finally:
+            loop.close()
         
-        # Also update the module-level variable to ensure consistency
-        _global_leads.update(mock_leads)
+        # STEP 2: Start the Apify integration to fetch detailed lead info
+        from activities.apify_activity import fetch_leads_activity
+        
+        # Run the Apify activity to enrich the discovered companies
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            fetched_leads = loop.run_until_complete(fetch_leads_activity())
+            leads.update(fetched_leads)
+        except Exception as e:
+            print(f"Error fetching leads: {str(e)}")
+        finally:
+            loop.close()
         
         # Set fetching leads to 100% complete
         stage_progress["fetching_leads"] = 100
         
-        # Schedule a background thread to simulate workflow progress
+        # Schedule a background thread to continue the workflow
         progress_thread = threading.Thread(target=simulate_workflow_progress, daemon=True)
         progress_thread.start()
+        
+        print(f"AI-powered discovery and enrichment pipeline started")
         
         # Create a unique ID for this workflow run
         workflow_id = f"outbound-prospecting-workflow-{int(time.time())}"

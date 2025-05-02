@@ -5,6 +5,7 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from workflow import OutboundProspectingWorkflow
+from activities.perplexity_discovery_activity import discover_funded_companies_activity
 from activities.apify_activity import fetch_leads_activity
 from activities.perplexity_activity import generate_insight_activity
 from activities.deepl_activity import polish_email_activity
@@ -29,9 +30,10 @@ async def run_worker():
         task_queue="prospect_queue",
         workflows=[OutboundProspectingWorkflow],
         activities=[
+            discover_funded_companies_activity,  # New discovery activity
             fetch_leads_activity,
             generate_insight_activity,
-            polish_email_activity,
+            polish_email_activity, 
             send_email_activity,
         ],
     )
