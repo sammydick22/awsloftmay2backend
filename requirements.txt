@@ -1,0 +1,22 @@
+# Flask and extensions
+flask[async]
+flask-cors
+gunicorn
+
+# Temporal
+temporalio
+
+# API clients
+apify-client
+httpx
+python-dotenv
+
+# Utilities
+python-json-logger
+
+# Testing
+pytest
+pytest-asyncio
+pytest-mock
+pytest-cov
+mock
